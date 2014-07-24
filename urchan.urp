@@ -1,0 +1,30 @@
+database dbname=test
+sql urchan.sql
+allow mime text/css
+rewrite style Urchan/board_title board_title
+rewrite style Urchan/board_title reply_form
+rewrite style Urchan/mhead mhead
+rewrite style Urchan/mmain mmain
+rewrite style Urchan/new_thread new_thread
+rewrite style Urchan/nav nav
+rewrite style Urchan/discussions discussions
+rewrite style Urchan/discussion discussion
+rewrite style Urchan/discussion_topic discussion_topic
+rewrite style Urchan/message message
+rewrite style Urchan/op_class op_class
+rewrite style Urchan/post_header post_header
+rewrite style Urchan/post_author post_author
+rewrite style Urchan/post_date post_date
+rewrite style Urchan/post_body post_body
+rewrite style Urchan/board_sidebar board_sidebar
+rewrite style Urchan/board_nav board_nav
+rewrite style Urchan/nav_prev nav_prev
+rewrite style Urchan/nav_next nav_next
+rewrite style Urchan/pagenav pagenav
+rewrite style Urchan/clear clear
+rewrite style Urchan/current_board_link current_board_link
+
+$/list
+$/string
+$/option
+urchan
