@@ -359,7 +359,7 @@ and render_post opid p =
 	      (* TODO: fragment links *)
               [ <a>{[p.Post.Id]}</a> ]
 	    </div>
-	    <div class={post_body}>{[p.Post.Text]}</div>
+	    <div class={post_body}>{Bbcode.bbcode p.Post.Text}</div>
 	  </div>
 	</xml>
     end

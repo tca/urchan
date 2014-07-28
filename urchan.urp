@@ -27,4 +27,5 @@ rewrite style Urchan/current_board_link current_board_link
 $/list
 $/string
 $/option
+bbcode
 urchan
