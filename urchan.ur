@@ -1,6 +1,7 @@
 sequence board_counter
 sequence discussion_counter
 sequence post_counter
+sequence poster_counter
 
 table board : { Id : int, Title : string } (* , Slug : string } *)
 		  PRIMARY KEY (Id)
@@ -8,9 +9,13 @@ table board : { Id : int, Title : string } (* , Slug : string } *)
 table disc : { Id : int, Board : int, Topic : string, Op : int, Bumped : time }
 		 PRIMARY KEY (Id), CONSTRAINT Board FOREIGN KEY Board REFERENCES board(Id)
 
-table post : { Id : int, Text : string, Parent : int, Date : time }
-		 PRIMARY KEY (Id), CONSTRAINT Parent FOREIGN KEY Parent REFERENCES disc(Id)
-
+table poster : { Id: int, Key : string, Disc : int }
+		   PRIMARY KEY (Id), CONSTRAINT Disc FOREIGN KEY Disc REFERENCES disc(Id)
+				     
+table post : { Id : int, Text : string, Parent : int, Date : time, Poster : option int }
+		 PRIMARY KEY (Id),
+      CONSTRAINT Parent FOREIGN KEY Parent REFERENCES disc(Id),
+      CONSTRAINT Poster FOREIGN KEY Poster REFERENCES poster(Id)
 
 val discussions_per_page = 5
 val posts_per_page = 5
@@ -39,14 +44,57 @@ style post_author
 style post_date
 style post_body
 
-(* TODO: per-thread user id
-<textbox name="key" value="key" id="key"/>
-<label>Generate ID: </label><checkbox{#Gen_id} value="true" id="gen_id" />
- *)
-fun post_form action = <xml>
+datatype authresult = AuthSuccess of int * string | AuthFail | Nothing
+
+fun verify_poster discussion key = 
+    user' <- oneOrNoRows (SELECT *
+			  FROM poster
+			  WHERE poster.Disc={[discussion]}
+			    AND poster.Key={[key]});
+    case user' of
+	None => return AuthFail
+      | Some user => return (AuthSuccess (user.Poster.Id, key))
+
+fun gen_key discussion  =
+    key <- rand;
+    taken <- oneOrNoRows (SELECT *
+			  FROM poster
+			  WHERE poster.Disc={[discussion]}
+			    AND poster.Key={[show key]});
+    case taken of
+	None => return (show key)
+      | Some(_) => k <- (gen_key discussion); return (show k)
+
+fun create_poster discussion =
+    id <- nextval poster_counter;
+    key <- gen_key discussion;
+    dml (INSERT INTO poster (Id, Key, Disc)
+	 VALUES ({[id]}, {[key]}, {[discussion]}));
+    return (id, key)
+
+fun auth_user disc auth (key : option string) =
+    case auth of
+      | Some "Gen" => x <- (create_poster disc); return (AuthSuccess x)
+      | Some "Key" =>
+	(case key of
+	     (* | Some "" => empty key error *)
+	     Some(key') =>  x <- (verify_poster disc key'); return x
+	   | None => return Nothing)
+      | _ => return Nothing
+
+
+fun post_form action pkey = <xml>
   <form>
     <p class={reply_form}>
-      <label>Bump: </label><checkbox{#Bump} checked={True} /><br />
+      <label>Bump: </label><checkbox{#Bump} checked={True} />
+      <label>Auth:</label>
+      <radio{#Auth}>
+	<li><radioOption value="No"/>None</li>
+	<li><radioOption value="Gen"/>Generate Id</li>
+	<li><radioOption value="Key" checked={case pkey of Some _ => True | None => False}/>Use Key:</li>
+      </radio>
+      <textbox{#Key} value={case pkey of Some k => k | None => ""}/>
+      <br />
       <textarea{#Text} rows=8 cols=80/><br/>
       <submit action={action}/>
     </p>
@@ -57,6 +105,12 @@ fun render_discussion_form action id = <xml>
     <form>
       <p class={discussion_form}>
 	<label for={id}>Topic: </label><textbox{#Topic} size=32 id={id}/><br/>
+	<label>Auth:</label>
+	<radio{#Auth}>
+	  <li><radioOption value="No" checked={True} />None</li>
+	  <li><radioOption value="Gen"/>Generate Id</li>
+	</radio>
+	<br/>
 	<textarea{#Text} rows=8 cols=80/><br/>
 	<submit action={action}/>
       </p>
@@ -103,25 +157,49 @@ and new_board () =
 and create_post parent r = 
     pid <- nextval post_counter;
     ptime <- now;
-    dml (INSERT INTO post (Id, Text, Parent, Date)
-	 VALUES ({[pid]}, {[r.Text]}, {[parent]}, {[ptime]}));
+    dml (INSERT INTO post (Id, Text, Parent, Date, Poster)
+	 VALUES ({[pid]}, {[r.Text]}, {[parent]}, {[ptime]}, {[r.Poster]}));
     return (pid, ptime)
 
 and add_post parent r =
-    (pid, ptime) <- create_post parent (r -- #Bump);
+    authr <- (auth_user parent r.Auth (Some(r.Key) : option string));
+    case authr of
+	AuthSuccess (id,key) => add_post' parent (r ++ { Poster = (Some id), PKey = Some(key)})
+      (* TODO: instead send to error page giving chance to edit and re-submit *)
+      | AuthFail => redirect (url (view_discussion parent { PKey = None }))
+      | Nothing => add_post' parent (r ++ { Poster = None, PKey = None })
+
+
+and add_post' parent r =
+    (pid, ptime) <- create_post parent {Text = r.Text, Poster = r.Poster};
     dml (UPDATE disc
 	 SET Bumped = {[ptime]}
 	 WHERE Id = {[parent]}
 	   AND {[ptime]} > Bumped
 	   AND {[r.Bump]});
-    redirect (url (view_discussion parent))
+    redirect (url (view_discussion parent { PKey = r.PKey }))
 
 and add_discussion board_id r =
     id <- nextval discussion_counter;
-    (pid, ptime) <- create_post id (r -- #Topic);
+    authr <- (auth_user id r.Auth None);
+    case authr of
+	(* TODO: give chance to re-edit and submit post *)
+	AuthFail => redirect (url (view_board board_id))
+      | AuthSuccess (uid,key) =>
+	add_discussion'
+	    board_id id
+	    { Topic = r.Topic, Text = r.Text, Poster = (Some uid), PKey = Some(key)}
+      | Nothing =>
+	add_discussion'
+	    board_id id
+	    { Topic = r.Topic, Text = r.Text, Poster = None, PKey = None}
+
+and add_discussion' board_id id r =
+    (pid, ptime) <- create_post id {Text = r.Text, Poster = r.Poster};
     dml (INSERT INTO disc (Id, Board, Topic, Op, Bumped)
 	 VALUES ({[id]}, {[board_id]}, {[r.Topic]}, {[pid]}, {[ptime]}));
-    redirect (url (view_discussion id))
+    redirect (url (view_discussion id { PKey = r.PKey}))
+
 
 and render_post opid p =
     let
@@ -130,7 +208,11 @@ and render_post opid p =
 	<xml>
 	  <div class={classes message opclass}>
 	    <div class={post_header}> 
-              <span class={post_author}>author</span> -
+              <span class={post_author}>
+	     	{[(case p.Post.Poster of
+		       Some poster => show poster
+		     | None => "Anonymous")]}
+	      </span> -
               <span class={post_date}>{[p.Post.Date]}</span> -
 	      (* TODO: fragment links *)
               [ <a>{[p.Post.Id]}</a> ]
@@ -187,7 +269,7 @@ and render_layout template =
 
 
 (* TODO: pagination of replies *)
-and view_discussion discussion_id =
+and view_discussion discussion_id r =
     d <- oneRow (SELECT * FROM disc WHERE disc.Id={[discussion_id]});
     b <- oneRow (SELECT * FROM board WHERE board.Id={[d.Disc.Board]});
     posts <- queryX (SELECT *
@@ -204,10 +286,10 @@ and view_discussion discussion_id =
 		Body = <xml>
 		  <p>
 		    <a href={url (view_board b.Board.Id)}>{[b.Board.Title]}</a> /
-		    <a href={url (view_discussion d.Disc.Id)}>{[d.Disc.Topic]}</a>
+		    <a href={url (view_discussion d.Disc.Id {PKey = None })}>{[d.Disc.Topic]}</a>
 		  </p>
 		  <div class={discussion}><dyn signal={signal s}/></div>
-		  {post_form (add_post d.Disc.Id)}
+		  {post_form (add_post d.Disc.Id) r.PKey}
 		</xml>};
     return template
 
@@ -243,7 +325,7 @@ and render_discussion_listing l =
 	<xml>
 	  <div class={discussion}>
 	    <h1 class={discussion_topic}>
-	      <a href={url (view_discussion l.Disc.Disc.Id)}>{topic}</a>
+	      <a href={url (view_discussion l.Disc.Disc.Id { PKey = None})}>{topic}</a>
 	    </h1>
 	    {case l.Posts of
 		 first :: rest => <xml>
@@ -290,7 +372,7 @@ and view_board_page board_id page =
 			  {List.mapX (fn d => <xml>
 			    <li>
 			      (* TODO: these are suposed to be fragment links *)
-			      <a href={url (view_discussion d.Disc.Disc.Id)}>
+			      <a href={url (view_discussion d.Disc.Disc.Id { PKey = None })}>
 				{(case d.Disc.Disc.Topic of
 				      "" => <xml>&lt;thread {[d.Disc.Disc.Id]}&gt;</xml>
 				    | topic' =>  <xml>{[d.Disc.Disc.Topic]}</xml> )}
@@ -315,9 +397,6 @@ and view_board_page board_id page =
 		    </xml> };
 	return template
     end
-
-
-
 
 fun main () =
     layout <- render_layout { Board = None, Code = None, Body = <xml><p>Welcome to Ur/Chan!</p></xml> };
