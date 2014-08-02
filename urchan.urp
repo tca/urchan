@@ -2,6 +2,8 @@ database dbname=test
 sql urchan.sql
 allow mime text/css
 rewrite all Urchan/*
+file /style.css style.css
+allow url /style.css
 
 $/list
 $/string
