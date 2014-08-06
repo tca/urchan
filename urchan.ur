@@ -86,12 +86,12 @@ fun auth_user disc auth (key : option string) =
 fun post_form action pkey = <xml>
   <form>
     <p class={reply_form}>
-      <label>Bump: </label><checkbox{#Bump} checked={True} />
+      <label>Bump:</label> <checkbox{#Bump} checked={True} />
       <label>Auth:</label>
       <radio{#Auth}>
-	<li><radioOption value="No"/>None</li>
-	<li><radioOption value="Gen"/>Generate Id</li>
-	<li><radioOption value="Key" checked={case pkey of Some _ => True | None => False}/>Use Key:</li>
+	<radioOption value="No"/>Anonymous
+	<radioOption value="Gen"/>Generate Id
+	<radioOption value="Key" checked={case pkey of Some _ => True | None => False}/>Use Key:
       </radio>
       <textbox{#Key} value={case pkey of Some k => k | None => ""}/>
       <br />
@@ -107,8 +107,8 @@ fun render_discussion_form action id = <xml>
 	<label for={id}>Topic: </label><textbox{#Topic} size=32 id={id}/><br/>
 	<label>Auth:</label>
 	<radio{#Auth}>
-	  <li><radioOption value="No" checked={True} />None</li>
-	  <li><radioOption value="Gen"/>Generate Id</li>
+	  <radioOption value="No" checked={True} />Anonymous
+	  <radioOption value="Gen"/>Generate Id
 	</radio>
 	<br/>
 	<textarea{#Text} rows=8 cols=80/><br/>
