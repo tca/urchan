@@ -125,26 +125,21 @@ fun add_board r =
     redirect (url (view_board id))
 
 and fetch_posts d =
-    posts <- queryX (SELECT *
-		     FROM post
-		     WHERE post.Parent={[d.Id]}
-		     ORDER BY post.Date ASC)
-		    (render_post d.Op);
-    return posts
+    queryX (SELECT *
+	    FROM post
+	    WHERE post.Parent={[d.Id]}
+	    ORDER BY post.Date ASC)
+	   (render_post d.Op)
 
 and timeLoop s d =
-    let
-	fun loop () = sleep 10000; timeLoop s d
-    in
-	st <- tryRpc (fetch_posts d);
-	case st of
-	    Some(t) => set s t; loop ()
-	  | None => loop ()
-    end
+    sleep 10000;
+    st <- tryRpc (fetch_posts d);
+    case st of
+	Some(t) => set s t; timeLoop s d
+      | None => timeLoop s d
 
 and new_board () =
-    return
-    <xml>
+    return <xml>
       <body>
 	<h1>Create a New Board</h1>
 	<form>
@@ -153,7 +148,6 @@ and new_board () =
 	</form>
       </body>
     </xml>
-
 
 and create_post parent r = 
     pid <- nextval post_counter;
@@ -268,7 +262,6 @@ and render_layout template =
 	</body>
     </xml>
 
-
 (* TODO: pagination of replies *)
 and view_discussion discussion_id r =
     d <- oneRow (SELECT * FROM disc WHERE disc.Id={[discussion_id]});
@@ -281,23 +274,20 @@ and view_discussion discussion_id r =
 		     OFFSET {posts_per_page * 0})
 		    (render_post d.Disc.Op);
     s <- source posts;
-    template <- render_layout {
-		Board = Some(b.Board.Id),
-		Code = Some <xml><script code={spawn (timeLoop s {Id = d.Disc.Id, Op = d.Disc.Op})} /></xml>,
-		Body = <xml>
-		  <p>
-		    <a href={url (view_board b.Board.Id)}>{[b.Board.Title]}</a>
-                    /
-		    <a href={url (view_discussion d.Disc.Id {PKey = None })}>
-                      {case d.Disc.Topic of
-                          "" => <xml>&lt;thread {[d.Disc.Id]}&gt;</xml>
-                        | t => <xml>{[t]}</xml>}
-                    </a>
-		  </p>
-		  <div class={discussion}><dyn signal={signal s}/></div>
-		  {post_form (add_post d.Disc.Id) r.PKey}
-		</xml>};
-    return template
+    render_layout { Board = (Some b.Board.Id),
+		    Code = (Some <xml><script code={spawn (timeLoop s {Id = d.Disc.Id, Op = d.Disc.Op})} /></xml>),
+		    Body = <xml>
+		      <p>
+		        <a href={url (view_board b.Board.Id)}>{[b.Board.Title]}</a>/
+		        <a href={url (view_discussion d.Disc.Id {PKey = None })}>
+                          {case d.Disc.Topic of
+                               "" => <xml>&lt;thread {[d.Disc.Id]}&gt;</xml>
+                             | t => <xml>{[t]}</xml>}
+                        </a>
+		      </p>
+		      <div class={discussion}><dyn signal={signal s}/></div>
+		      {post_form (add_post d.Disc.Id) r.PKey}
+		    </xml>}
 
 and get_discussion_listing d =
     pcount <- oneRow (SELECT COUNT( * ) AS Count
@@ -315,11 +305,11 @@ and get_discussion_listing d =
 	     Omitted = (pcount.Count - (1 + (List.length posts))),
 	     Disc = d,
 	     Op = op,
-		      Posts = (case (List.nth posts 0) of
-				   Some(x) => (if (x.Post.Id = op.Post.Id)
-					       then posts
-					       else op :: posts)
-				 | None => []) }
+	     Posts = (case (List.nth posts 0) of
+			  Some(x) => (if (x.Post.Id = op.Post.Id)
+				      then posts
+				      else op :: posts)
+			| None => []) }
 
 and render_discussion_listing l =
     let
@@ -348,7 +338,6 @@ and render_discussion_listing l =
 (*
  TODO:
  - 404 on bad Id
- - pagination
  - for some reason can't link to this page from itself
 *)
 and view_board board_id = view_board_page board_id 0
@@ -362,12 +351,12 @@ and view_board_page board_id page =
 				 LIMIT {discussions_per_page}
 				 OFFSET {page * discussions_per_page});
     discussion_count <- oneRowE1 (SELECT COUNT( * )
-                            FROM disc
-                            WHERE disc.Board={[board_id]});
+                                  FROM disc
+                                  WHERE disc.Board={[board_id]});
     let
 	(* TODO: nested query instead? *)
 	val discussions_list = List.rev discussions_list'
-                               val page_count = discussion_count / discussions_per_page
+        val page_count = discussion_count / discussions_per_page
     in
 	discussions_listings <- List.mapM get_discussion_listing discussions_list;
 	discussion_form_id <- fresh;
@@ -408,6 +397,4 @@ and view_board_page board_id page =
 	return template
     end
 
-fun main () =
-    layout <- render_layout { Board = None, Code = None, Body = <xml><p>Welcome to Ur/Chan!</p></xml> };
-    return layout
+fun main () = render_layout { Board = None, Code = None, Body = <xml><p>Welcome to Ur/Chan!</p></xml> }
