@@ -14,7 +14,7 @@ table poster : { Id: int, Key : string, Disc : int }
 				     
 table post : { Id : int, Text : string, Parent : int, Date : time, Poster : option int }
 		 PRIMARY KEY (Id),
-      CONSTRAINT Parent FOREIGN KEY Parent REFERENCES disc(Id),
+      (* CONSTRAINT Parent FOREIGN KEY Parent REFERENCES disc(Id), *)
       CONSTRAINT Poster FOREIGN KEY Poster REFERENCES poster(Id)
 
 val discussions_per_page = 5
@@ -195,7 +195,8 @@ fun add_board r =
 and fetch_posts d =
     posts <- queryX (SELECT *
 		     FROM post
-		     WHERE post.Parent={[d.Id]})
+		     WHERE post.Parent={[d.Id]}
+		     ORDER BY post.Date ASC)
 		    (render_post d.Op);
     return posts
 
@@ -343,7 +344,7 @@ and view_discussion discussion_id r =
     posts <- queryX (SELECT *
 		     FROM post
 		     WHERE post.Parent={[discussion_id]}
-		     ORDER BY post.Date DESC
+		     ORDER BY post.Date ASC
 		     LIMIT {posts_per_page}
 		     OFFSET {posts_per_page * 0})
 		    (render_post d.Disc.Op);
@@ -353,8 +354,13 @@ and view_discussion discussion_id r =
 		Code = Some <xml><script code={spawn (timeLoop s {Id = d.Disc.Id, Op = d.Disc.Op})} /></xml>,
 		Body = <xml>
 		  <p>
-		    <a href={url (view_board b.Board.Id)}>{[b.Board.Title]}</a> /
-		    <a href={url (view_discussion d.Disc.Id {PKey = None })}>{[d.Disc.Topic]}</a>
+		    <a href={url (view_board b.Board.Id)}>{[b.Board.Title]}</a>
+                    /
+		    <a href={url (view_discussion d.Disc.Id {PKey = None })}>
+                      {case d.Disc.Topic of
+                          "" => <xml>&lt;thread {[d.Disc.Id]}&gt;</xml>
+                        | t => <xml>{[t]}</xml>}
+                    </a>
 		  </p>
 		  <div class={discussion}><dyn signal={signal s}/></div>
 		  {post_form (add_post d.Disc.Id) r.PKey}
