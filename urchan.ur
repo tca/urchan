@@ -135,11 +135,9 @@ fun iota_rev s e =
 (* pagination that tries to stay the same size *)
 (* it also has beggining/end and prev/next jumps *)
 (* <- 1 ... 4 5 6 7 [8] 9 10 11 ... 25 -> *)
-val per_page = 10
-val size = 8
-
 fun pagination_links pages page prefix =
     let
+        val size = 8
         val bbump = max 0
         val tbump = min pages
         (* shrink list for smaller collections *)
@@ -171,19 +169,13 @@ fun pagination_links pages page prefix =
             end
 
         val pad = link page '...' False
-        val left = (if start = 0 then <xml></xml> else link 0 "0" True)
-        val pad_left = (if start <= 0 then <xml></xml> else pad)
-        val pad_right = (if finish >= pages then <xml></xml> else pad)
-        val right = (if finish = pages then <xml></xml> else link pages (show pages) True)
     in
         <xml>
           <ul class={pagination}>
             {link back "Previous" False}
-            {left}
-            {pad_left}
+            {if start <= 0 then <xml></xml> else <xml>{link 0 "0" True}{pad}</xml>}
             {List.mapX (fn i => link i (show i) True) (iota_rev start finish)}
-            {pad_right}
-            {right}
+            {if finish >= pages then <xml></xml> else <xml>{pad}{link pages (show pages) True}</xml>}
             {link forward "Next" False}
           </ul>
         </xml>
