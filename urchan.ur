@@ -123,7 +123,7 @@ fun render_discussion_form action id = <xml>
 </xml>
 
 
-fun iota_rev (s, e) =
+fun iota_rev s e =
     let fun aux e a =
             if e > s
             then aux (e - 1) (e :: a)
@@ -152,7 +152,8 @@ fun pagination_links pages page prefix =
                    then low - (high - pages)
                    else low
         (* cut off bad parts *)
-        val range = (bbump low', tbump high)
+        val start = bbump low'
+        val finish = tbump high
         (* define previous and next pages *)
         val back = bbump (page - 1)
         val forward = tbump (page + 1)
@@ -170,15 +171,19 @@ fun pagination_links pages page prefix =
             end
 
         val pad = link page '...' False
+        val left = (if start = 0 then <xml></xml> else link 0 "0" True)
+        val pad_left = (if start <= 0 then <xml></xml> else pad)
+        val pad_right = (if finish >= pages then <xml></xml> else pad)
+        val right = (if finish = pages then <xml></xml> else link pages (show pages) True)
     in
         <xml>
           <ul class={pagination}>
             {link back "Previous" False}
-            {link 0 "0" True} (* unless range.begin == 0  *)
-            {pad} (* unless range.begin - 1 <= 1 *)
-            {List.mapX (fn i => link i (show i) True) (iota_rev range)}
-            {pad} (* unless range.end + 1 >= pages *)
-            {link pages (show pages) True} (* unless range.end == pages *)
+            {left}
+            {pad_left}
+            {List.mapX (fn i => link i (show i) True) (iota_rev start finish)}
+            {pad_right}
+            {right}
             {link forward "Next" False}
           </ul>
         </xml>
