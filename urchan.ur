@@ -44,11 +44,6 @@ style post_author
 style post_date
 style post_body
 
-style pagination
-style page_link
-style active
-style disabled
-
 datatype authresult = AuthSuccess of int * string | AuthFail | Nothing
 
 fun verify_poster discussion key = 
@@ -121,66 +116,6 @@ fun render_discussion_form action id = <xml>
       </p>
   </form>
 </xml>
-
-
-fun iota_rev s e =
-    let fun aux e a =
-            if e > s
-            then aux (e - 1) (e :: a)
-            else e :: a
-    in
-        aux e []
-    end
-
-(* pagination that tries to stay the same size *)
-(* it also has beggining/end and prev/next jumps *)
-(* <- 1 ... 4 5 6 7 [8] 9 10 11 ... 25 -> *)
-fun pagination_links pages page prefix =
-    let
-        val size = 8
-        val bbump = max 0
-        val tbump = min pages
-        (* shrink list for smaller collections *)
-        val size = tbump size
-        (* estimate range *)
-        val low = bbump (page - size / 2)
-        val high = low + size
-        (* overflow leftovers into low *)
-        val low' = if high > pages
-                   then low - (high - pages)
-                   else low
-        (* cut off bad parts *)
-        val start = bbump low'
-        val finish = tbump high
-        (* define previous and next pages *)
-        val back = bbump (page - 1)
-        val forward = tbump (page + 1)
-
-        fun link page_no text numbered =
-            (* highlight current page and disable prev/next links *)
-            let val c = if page_no = page
-                         then
-                             if numbered
-                             then active
-                             else disabled
-                        else page_link
-            in
-                <xml><li><a href={url (prefix page_no)} class={c}>{[text]}</a></li></xml>
-            end
-
-        val pad = link page '...' False
-    in
-        <xml>
-          <ul class={pagination}>
-            {link back "Previous" False}
-            {if start <= 0 then <xml></xml> else <xml>{link 0 "0" True}{pad}</xml>}
-            {List.mapX (fn i => link i (show i) True) (iota_rev start finish)}
-            {if finish >= pages then <xml></xml> else <xml>{pad}{link pages (show pages) True}</xml>}
-            {link forward "Next" False}
-          </ul>
-        </xml>
-    end
-
 
 (* TODO: Only let admins create boards *)
 fun add_board r =
@@ -466,7 +401,7 @@ and view_board_page board_id page =
 		      <div class={discussions}>
 			{render_discussion_form (add_discussion board_id) discussion_form_id}
 			{List.mapX render_discussion_listing discussions_listings}
-                        {pagination_links page_count page (view_board_page board_id)}
+                        {Pagination.pagination_links page_count page (view_board_page board_id)}
 		      </div>
 		      <hr class={clear} />
 		    </xml> };

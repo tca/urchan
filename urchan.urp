@@ -1,8 +1,9 @@
-database dbname=test
+database dbname=urchan
 sql urchan.sql
 allow mime text/css
 rewrite url Urchan/main
 rewrite all Urchan/*
+rewrite all Pagination/*
 file /style.css style.css
 allow url /style.css
 
@@ -10,4 +11,5 @@ $/list
 $/string
 $/option
 bbcode
+pagination
 urchan
