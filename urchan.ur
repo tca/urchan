@@ -270,8 +270,8 @@ and view_discussion discussion_id r =
 		     FROM post
 		     WHERE post.Parent={[discussion_id]}
 		     ORDER BY post.Date ASC
-		     LIMIT {posts_per_page}
-		     OFFSET {posts_per_page * 0})
+		    (* LIMIT {posts_per_page} *)
+		    (* OFFSET {posts_per_page * 0} *))
 		    (render_post d.Disc.Op);
     s <- source posts;
     render_layout { Board = (Some b.Board.Id),
