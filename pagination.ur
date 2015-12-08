@@ -42,7 +42,7 @@ fun pagination_links pages page prefix =
         fun link_page page_no =
             (<xml><li><a href={url (prefix page_no)} class={if page_no = page then active else page_link}>{[show page_no]}</a></li></xml>)
         fun link page_no text =
-            (<xml><li><a href={url (prefix page_no)} class={if page_no = page then disabled else active}>{[text]}</a></li></xml>)
+            (<xml><li><a href={url (prefix page_no)} class={if page_no = page then disabled else page_link}>{[text]}</a></li></xml>)
             
         val pad = <xml><li><a class={disabled}>...</a></li></xml>
     in
