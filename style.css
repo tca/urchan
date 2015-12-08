@@ -147,6 +147,7 @@ a:hover { color:#000; }
   padding:1em 0;
   border-top-width:0;
   color:#4F4A45;
+  white-space: pre-wrap;
 }
 
 .message .post_body .greentext {
