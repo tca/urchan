@@ -9,7 +9,6 @@ in
     msplit_all' str chr_tokens []
 end
 
-
 datatype bbtoken = Open of string | Close of string | Text of string
 
 fun string_of_bbtoken bt = 
@@ -20,29 +19,22 @@ fun string_of_bbtoken bt =
 
 fun xml_of_bbtoken bt = (<xml>{[string_of_bbtoken bt]}</xml>)
 
-(* it's like this for later conversion to typeclass/pvar *)
-fun mkTag' tag =
+fun mkTag tag pass fail=
    (case tag of
-	"b" => Some "b" 
-      | "i" => Some "i"
-      | "o" => Some "o"
-      | "u" => Some "u"
-      | _ => None)
-
-fun mkTag tag cons =
-    case mkTag' tag of
-	Some tt => cons tt
-      (* return text node for invalid tags (since it is a markup langauge) *)
-      | None => Text tag
+	"b" => pass "b"
+      | "i" => pass "i"
+      | "o" => pass "o"
+      | "u" => pass "u"
+      | "pre" => pass "pre"
+      | _ => fail tag)
 
 fun tagify tokens =
     case tokens of
 	[] => []
       | "" :: [] => []
-      | "[" :: tag :: "]" :: rest => (mkTag tag @@Open) :: (tagify rest)
-      | "[" :: "/" :: tag :: "]" :: rest =>  (mkTag tag @@Close) :: (tagify rest)
+      | "[" :: tag :: "]" :: rest => (mkTag tag @@Open (fn t => Text ("[" ^ t ^ "]"))) :: (tagify rest)
+      | "[" :: "/" :: tag :: "]" :: rest =>  (mkTag tag @@Close (fn t => Text ("[/" ^ t ^ "]"))) :: (tagify rest)
       | text :: rest => (Text text) :: (tagify rest)
-
 
 fun getTransformer (tag : string) : (xbody -> xbody) = 
     case tag of
@@ -51,6 +43,7 @@ fun getTransformer (tag : string) : (xbody -> xbody) =
       | "i" => (fn x => <xml><em>{x}</em></xml>)
       | "o" => (fn x => <xml><span style={STYLE "text-decoration:overline"}>{x}</span></xml>)
       | "u" => (fn x => <xml><span style={STYLE "text-decoration:underline"}>{x}</span></xml>)
+      | "pre" => (fn x => <xml><pre>{x}</pre></xml>)
       | _ => (fn x => <xml/>) (* TODO: this should be unreacable *)
 
 datatype el = El of (bbtoken * list el)
@@ -87,7 +80,8 @@ fun run tokens =
 		     (* the constructin is complete, push it on the head of rst *)
 		     (* swapping the Open tag for the Close tag to indicate it is done *)
 		     then run' cmds' (push_el rst (El (Close hc, List.rev cs)))
-		     (* this end tag doesn't match start tag; push it as a val *)
+		     (* this end tag doesn't match start tag; push it as a val
+                        TODO: make this work *)
 		     else run' cmds' (push_val stack (Close c)))
 		  (* should be unreachable *)
 		  | _ => run' cmds' (push_val stack (Close c))
